@@ -41,7 +41,20 @@ async function callClaude(prompt, maxTokens = 1200) {
   const { data, error } = await supabase.functions.invoke("generate-ai", {
     body: { prompt, maxTokens },
   });
-  if (error) throw error;
+  if (error) {
+    // supabase-js hanya memberi pesan generik ("non-2xx status code") di
+    // error.message — pesan sesungguhnya ada di body respons function.
+    let message = error.message;
+    try {
+      if (error.context && typeof error.context.json === "function") {
+        const body = await error.context.json();
+        if (body?.error) message = body.error;
+      }
+    } catch (_) {
+      // biarkan pesan generik kalau body tidak bisa dibaca
+    }
+    throw new Error(message);
+  }
   if (data?.error) throw new Error(data.error);
   return (data?.text || "").trim();
 }
