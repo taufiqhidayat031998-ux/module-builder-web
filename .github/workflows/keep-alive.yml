@@ -1,0 +1,30 @@
+name: Supabase Keep-Alive
+
+# Mencegah project Supabase Free Plan otomatis "Paused" karena 7 hari tanpa
+# aktivitas. Workflow ini mengirim ping ringan ke project Anda dua kali
+# seminggu — jauh di bawah ambang 7 hari, jadi ada jeda aman kalau salah
+# satu jadwal terlewat.
+
+on:
+  schedule:
+    # Setiap Minggu & Rabu jam 03:00 UTC. Jadwal cron GitHub Actions selalu
+    # dalam UTC, bukan waktu lokal Anda — tidak masalah, yang penting rutin.
+    - cron: "0 3 * * 0,3"
+  workflow_dispatch: {} # supaya bisa dijalankan manual kapan saja untuk tes
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Auth health endpoint
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/auth/v1/health" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "Status respons: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "✅ Project Supabase aktif dan terjangkau."
+          else
+            echo "⚠️ Respons tidak seperti yang diharapkan (status $STATUS). Cek project Supabase Anda secara manual."
+            exit 1
+          fi
