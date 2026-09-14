@@ -256,7 +256,7 @@ const DEFAULT_TEMPLATES = [
   },
 ];
 
-function applyTemplateToModule(mod, template) {
+function applyTemplateToModule(mod, template, includeExampleText = false) {
   if (!template) {
     return { ...mod, templateId: null, templateRows: [], customSections: [] };
   }
@@ -266,7 +266,15 @@ function applyTemplateToModule(mod, template) {
     templateRows: template.rows,
     customSections: template.rows
       .filter((r) => r.type === "manual")
-      .map((r) => ({ id: r.id, label: r.label, value: r.defaultText || "" })),
+      .map((r) => ({
+        id: r.id,
+        label: r.label,
+        // Defaultnya KOSONG, bukan teks contoh dari dokumen asli yang dulu
+        // diunggah — supaya isi dokumen lain (mis. topik/ayat/contoh
+        // kegiatan yang spesifik untuk modul lain) tidak diam-diam ikut
+        // terbawa ke modul baru ini kalau guru lupa menghapusnya.
+        value: includeExampleText ? r.defaultText || "" : "",
+      })),
   };
 }
 
@@ -638,10 +646,11 @@ function StepData({ mod, setMod, templates }) {
   const setD = (patch) => setMod({ ...mod, dataDasar: { ...d, ...patch } });
   const toggle = (group, key) =>
     setMod({ ...mod, [group]: { ...mod[group], [key]: !mod[group][key] } });
+  const [includeExampleText, setIncludeExampleText] = useState(false);
 
   const selectTemplate = (templateId) => {
     const tpl = templates.find((t) => t.id === templateId) || null;
-    setMod(applyTemplateToModule(mod, tpl));
+    setMod(applyTemplateToModule(mod, tpl, includeExampleText));
   };
 
   const updateCustomSection = (id, value) =>
@@ -669,6 +678,23 @@ function StepData({ mod, setMod, templates }) {
             </option>
           ))}
         </select>
+        <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={includeExampleText}
+            onChange={(e) => setIncludeExampleText(e.target.checked)}
+            className="h-4 w-4 rounded accent-sky-500"
+          />
+          <span className="text-xs text-slate-500">
+            Sertakan contoh teks dari template (kalau tidak dicentang, bagian tambahan
+            dimulai kosong — disarankan, supaya isi dari dokumen asal template tidak
+            ikut terbawa tanpa sengaja)
+          </span>
+        </label>
+        <p className="text-[11px] text-slate-400 mt-1">
+          Pengaturan ini berlaku saat Anda memilih template di dropdown atas — ubah
+          dulu sebelum memilih/memilih ulang templatenya.
+        </p>
       </Card>
 
       {mod.customSections.length > 0 && (
@@ -1545,16 +1571,25 @@ function TemplateForm({ onSave, onCancel }) {
       }
       // Ambil tabel dengan jumlah baris terbanyak — biasanya itu tabel isi
       // utama (Komponen/Deskripsi), bukan tabel data sekolah di bagian atas.
+      // PENTING: pakai properti .rows (bukan querySelectorAll("tr")), karena
+      // querySelectorAll juga mengambil baris dari tabel kecil yang
+      // bersarang di dalam sebuah sel (mis. tabel badge profil lulusan atau
+      // tabel data di dalam sel "Kegiatan Inti") — itu menyebabkan baris
+      // palsu ikut masuk sebagai Komponen tersendiri dan hasil akhirnya
+      // berantakan.
       const mainTable = tables.reduce((best, t) => {
-        const rowCount = t.querySelectorAll("tr").length;
-        const bestCount = best ? best.querySelectorAll("tr").length : 0;
+        const rowCount = t.rows.length;
+        const bestCount = best ? best.rows.length : 0;
         return rowCount > bestCount ? t : best;
       }, null);
 
-      const trs = Array.from(mainTable.querySelectorAll("tr"));
+      const trs = Array.from(mainTable.rows);
       const imported = [];
+      const seenLabels = new Set();
       trs.forEach((tr) => {
-        const cells = Array.from(tr.querySelectorAll("td, th"));
+        // .cells juga hanya mengambil sel milik baris ini sendiri, bukan
+        // sel dari tabel bersarang di dalamnya.
+        const cells = Array.from(tr.cells);
         if (cells.length < 2) return;
         const label = cells[0].textContent.replace(/\s+/g, " ").trim();
         const defaultText = cells
@@ -1565,6 +1600,11 @@ function TemplateForm({ onSave, onCancel }) {
         if (!label) return;
         // Lewati baris header seperti "Komponen | Deskripsi"
         if (/^komponen$/i.test(label)) return;
+        // Lewati label yang sudah pernah muncul, untuk jaga-jaga kalau masih
+        // ada duplikasi dari struktur tabel yang rumit.
+        const key = label.toLowerCase();
+        if (seenLabels.has(key)) return;
+        seenLabels.add(key);
         imported.push({
           label,
           type: "manual",
@@ -2158,7 +2198,7 @@ export default function App() {
 
   const duplicateModule = async (m) => {
     const copy = {
-      ...m,
+      ...JSON.parse(JSON.stringify(m)), // deep clone — pastikan tidak berbagi referensi objek/array bersama modul aslinya
       id: crypto.randomUUID(),
       createdAt: new Date().toLocaleDateString("id-ID"),
     };
