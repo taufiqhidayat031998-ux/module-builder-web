@@ -99,6 +99,10 @@ const emptyDataDasar = {
   semester: "Ganjil",
   tahunAjaran: "",
   penyusun: "",
+  nikPenyusun: "",
+  kepalaSekolah: "",
+  nikKepalaSekolah: "",
+  kota: "",
   alokasiWaktu: "",
 };
 
@@ -251,6 +255,86 @@ const DEFAULT_TEMPLATES = [
         label: "Kemitraan Pembelajaran",
         type: "manual",
         defaultText: "Peran orang tua/wali, guru BK, dsb...",
+      },
+    ],
+  },
+  {
+    id: "tpl-athirah",
+    name: "Format Lengkap (Rujukan Spiritual, Profil Lulusan, Praktik Pedagogis)",
+    rows: [
+      {
+        id: "row-rujukan",
+        label: "Rujukan Spiritualisasi",
+        type: "manual",
+        defaultText: "",
+      },
+      {
+        id: "row-identifikasi",
+        label: "Identifikasi (Dimensi Profil Lulusan)",
+        type: "dynamic",
+        field: "identifikasi",
+      },
+      {
+        id: "row-program-khas",
+        label: "Program Khas & Eco School",
+        type: "manual",
+        defaultText: "",
+      },
+      { id: "row-cp", label: "Capaian Pembelajaran", type: "dynamic", field: "cp" },
+      {
+        id: "row-desain",
+        label: "Desain Pembelajaran — Tujuan Pembelajaran",
+        type: "dynamic",
+        field: "desainPembelajaran",
+      },
+      {
+        id: "row-pedagogis",
+        label: "Praktik Pedagogis (Model & Metode)",
+        type: "manual",
+        defaultText: "",
+      },
+      {
+        id: "row-media",
+        label: "Media, Sarana & Pemanfaatan Digital",
+        type: "manual",
+        defaultText: "",
+      },
+      {
+        id: "row-kemitraan-2",
+        label: "Lingkungan dan Kemitraan Pembelajaran",
+        type: "manual",
+        defaultText: "",
+      },
+      {
+        id: "row-awal",
+        label: "Pengalaman Belajar — Kegiatan Awal",
+        type: "dynamic",
+        field: "kegiatanAwal",
+      },
+      {
+        id: "row-inti",
+        label: "Pengalaman Belajar — Kegiatan Inti (Memahami, Mengaplikasi, Merefleksi)",
+        type: "dynamic",
+        field: "kegiatanInti",
+      },
+      {
+        id: "row-penutup",
+        label: "Pengalaman Belajar — Kegiatan Penutup",
+        type: "dynamic",
+        field: "kegiatanPenutup",
+      },
+      { id: "row-refleksi-2", label: "Refleksi", type: "dynamic", field: "refleksi" },
+      {
+        id: "row-asesmen-2",
+        label: "Asesmen — Deskripsi & Instrumen",
+        type: "dynamic",
+        field: "asesmen",
+      },
+      {
+        id: "row-asesmen-indikator",
+        label: "Asesmen — Indikator, Asesmen Formatif & Penguatan Aktivitas",
+        type: "manual",
+        defaultText: "",
       },
     ],
   },
@@ -778,11 +862,39 @@ function StepData({ mod, setMod, templates }) {
               placeholder="Nama guru"
             />
           </Field>
+          <Field label="NIK Penyusun (opsional)">
+            <TextInput
+              value={d.nikPenyusun}
+              onChange={(e) => setD({ nikPenyusun: e.target.value })}
+              placeholder="200501005"
+            />
+          </Field>
           <Field label="Alokasi Waktu">
             <TextInput
               value={d.alokasiWaktu}
               onChange={(e) => setD({ alokasiWaktu: e.target.value })}
               placeholder="2 x 35 menit"
+            />
+          </Field>
+          <Field label="Kepala Sekolah (opsional)">
+            <TextInput
+              value={d.kepalaSekolah}
+              onChange={(e) => setD({ kepalaSekolah: e.target.value })}
+              placeholder="Nama kepala sekolah"
+            />
+          </Field>
+          <Field label="NIK Kepala Sekolah (opsional)">
+            <TextInput
+              value={d.nikKepalaSekolah}
+              onChange={(e) => setD({ nikKepalaSekolah: e.target.value })}
+              placeholder="199901003"
+            />
+          </Field>
+          <Field label="Kota (untuk tanda tangan, opsional)">
+            <TextInput
+              value={d.kota}
+              onChange={(e) => setD({ kota: e.target.value })}
+              placeholder="Makassar"
             />
           </Field>
         </div>
@@ -1228,7 +1340,7 @@ function StepPreview({ mod, onSave }) {
         </tr>
         ${tableRowsHtml}
       </table>
-      <p style="margin-top:24px;">Makassar, ${today}</p>
+      <p style="margin-top:24px;">${d.kota || "-"}, ${today}</p>
       <p>Mengetahui,</p>
       <table style="border-collapse:collapse;width:100%;margin-top:40px;">
         <tr>
@@ -1238,9 +1350,14 @@ function StepPreview({ mod, onSave }) {
         </tr>
         <tr><td style="height:50px;"></td><td></td><td></td></tr>
         <tr>
-          <td style="text-align:center;text-decoration:underline;">(________________)</td>
+          <td style="text-align:center;text-decoration:underline;">${d.kepalaSekolah || "________________"}</td>
           <td></td>
           <td style="text-align:center;text-decoration:underline;">${d.penyusun || "________________"}</td>
+        </tr>
+        <tr>
+          <td style="text-align:center;">${d.nikKepalaSekolah ? "NIK: " + d.nikKepalaSekolah : ""}</td>
+          <td></td>
+          <td style="text-align:center;">${d.nikPenyusun ? "NIK: " + d.nikPenyusun : ""}</td>
         </tr>
       </table>
       </body></html>`;
@@ -1346,7 +1463,8 @@ function StepPreview({ mod, onSave }) {
         </table>
 
         <p className="text-xs text-slate-400 mt-6 text-center">
-          Makassar, {today} · Mengetahui, Kepala Sekolah & Guru Kelas ({d.penyusun || "-"})
+          {d.kota || "-"}, {today} · Mengetahui, Kepala Sekolah ({d.kepalaSekolah || "-"}) &
+          Guru Kelas ({d.penyusun || "-"})
         </p>
       </Card>
     </div>
